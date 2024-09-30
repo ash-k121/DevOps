@@ -1,0 +1,48 @@
+/* Basic reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  .navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #2c3e50;
+    color: white;
+  }
+  
+  .logo h2 {
+    margin: 0;
+    font-size: 24px;
+    color: #ecf0f1;
+  }
+  
+  .search-bar {
+    flex-grow: 1;
+    text-align: center;
+  }
+  
+  .search-bar input {
+    width: 50%;
+    padding: 8px;
+    border-radius: 4px;
+    border: none;
+  }
+  
+  .profile-icon {
+    font-size: 30px;
+    cursor: pointer;
+  }
+  
+  .profile-icon i {
+    color: #ecf0f1;
+  }
+  
+  /* Optional: Add a hover effect */
+  .profile-icon:hover i {
+    color: #3498db;
+  }
+  
