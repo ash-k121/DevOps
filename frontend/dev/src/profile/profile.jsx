@@ -28,27 +28,42 @@ const Profile = () => {
 
   // Image upload handling
   const [image, setImage] = useState(null);
+  
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = () => {
-        setImage(reader.result);
+        setImage(reader.result); // Set the uploaded image
       };
       reader.readAsDataURL(file);
     }
   };
 
+  // Function to remove the profile photo
+  const handleRemoveImage = () => {
+    setImage(null); // Clear the image state
+  };
+
   return (
     <div className="profile-container">
       <div className="profile-header">
-        <div className="profile-image">
+        <div className="profile-image" onClick={() => document.getElementById('file-input').click()}>
           {image ? (
-            <img src={image} alt="Profile" />
+            <div className="image-wrapper">
+              <img src={image} alt="Profile" />
+              <button className="remove-image-btn" onClick={handleRemoveImage}>Remove</button>
+            </div>
           ) : (
             <div className="image-placeholder">Upload Image</div>
           )}
-          <input type="file" onChange={handleImageUpload} />
+          <input 
+            type="file" 
+            id="file-input" 
+            onChange={handleImageUpload} 
+            accept="image/*" 
+            style={{ display: 'none' }} // Hide the input
+          />
         </div>
         <div className="profile-info">
           <h2>{user.name}</h2>
