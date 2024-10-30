@@ -1,84 +1,115 @@
-import React, { useState } from 'react';
-import './profile.css'; // For basic styling
+import React, { useEffect, useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
+import axios from "axios";
+import './profile.css';
 
 const Profile = () => {
-  // Mock user data
-  const [user, setUser] = useState({
-    name: "John Doe",
-    followers: 120,
-    following: 75,
-    posts: [
-      {
-        id: 1,
-        title: "Exploring the mountains",
-        content: "Had an amazing time hiking the rocky trails. #nature #adventure",
-      },
-      {
-        id: 2,
-        title: "React is Awesome",
-        content: "Started learning React today, and it's super fun! #coding #javascript",
-      },
-      {
-        id: 3,
-        title: "Best coffee in town",
-        content: "Found the best coffee shop! Highly recommend it. #coffee #cafe",
-      },
-    ],
-  });
+  const { user, isAuthenticated } = useAuth0();
+  const [userData, setUserData] = useState(null);
+  const [bio, setBio] = useState("");
+  const [newPostContent, setNewPostContent] = useState("");
+  const [visibility, setVisibility] = useState("friends");
+  const [posts, setPosts] = useState([]);
 
-  // Image upload handling
-  const [image, setImage] = useState(null);
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (isAuthenticated && user) {
+        try {
+          const userResponse = await axios.post("http://localhost:5170/api/users/check", {
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+          });
+          setUserData(userResponse.data);
+          setBio(userResponse.data.bio);
+
+          // Fetch posts for this user
+          const postsResponse = await axios.get(`http://localhost:5170/api/posts/user/${userResponse.data._id}`);
+          setPosts(postsResponse.data);
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      }
+    };
+
+    fetchUserData();
+  }, [isAuthenticated, user]);
+
+  const handleBioChange = async () => {
+    if (!userData) {
+        alert("User data not available. Please try again later.");
+        return;
+    }
   
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setImage(reader.result); // Set the uploaded image
+    try {
+        await axios.put(`http://localhost:5170/api/users/${userData._id}/update-bio`, { bio });
+        alert("Bio updated successfully!");
+    } catch (error) {
+        console.error("Error updating bio:", error);
+        alert("Error updating bio. Please try again.");
+    }
+};
+
+  const handlePostSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const newPost = {
+        user_id: userData._id,
+        content: newPostContent,
+        visibility,
       };
-      reader.readAsDataURL(file);
+
+      const response = await axios.post("http://localhost:5170/api/posts/create", newPost);
+      setPosts([response.data, ...posts]); // Add new post to the beginning of the posts array
+      setNewPostContent("");
+    } catch (error) {
+      console.error("Error creating post:", error);
     }
   };
 
-  // Function to remove the profile photo
-  const handleRemoveImage = () => {
-    setImage(null); // Clear the image state
-  };
+  if (!isAuthenticated) {
+    return <p>Please log in to view your profile.</p>;
+  }
 
   return (
     <div className="profile-container">
       <div className="profile-header">
-        <div className="profile-image" onClick={() => document.getElementById('file-input').click()}>
-          {image ? (
-            <div className="image-wrapper">
-              <img src={image} alt="Profile" />
-              <button className="remove-image-btn" onClick={handleRemoveImage}>Remove</button>
-            </div>
-          ) : (
-            <div className="image-placeholder">Upload Image</div>
-          )}
-          <input 
-            type="file" 
-            id="file-input" 
-            onChange={handleImageUpload} 
-            accept="image/*" 
-            style={{ display: 'none' }} // Hide the input
-          />
+        <div className="profile-image">
+          <img src={user.picture} alt="Profile" />
         </div>
         <div className="profile-info">
           <h2>{user.name}</h2>
-          <p>{user.followers} Followers</p>
-          <p>{user.following} Following</p>
+          <p>Email: {user.email}</p>
+          <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Edit your bio" />
+          <button onClick={handleBioChange}>Save Bio</button>
         </div>
       </div>
 
+      <div className="new-post-section">
+        <h3>Create a New Post</h3>
+        <form onSubmit={handlePostSubmit}>
+          <textarea
+            value={newPostContent}
+            onChange={(e) => setNewPostContent(e.target.value)}
+            placeholder="What's on your mind?"
+            required
+          />
+          <select value={visibility} onChange={(e) => setVisibility(e.target.value)}>
+            <option value="friends">Friends</option>
+            <option value="public">Public</option>
+          </select>
+          <button type="submit">Post</button>
+        </form>
+      </div>
+
       <div className="posts-section">
-        <h3>Posts</h3>
+        <h3>Your Posts</h3>
         <div className="posts-grid">
-          {user.posts.map((post) => (
-            <div key={post.id} className="post-card">
-              <h4>{post.title}</h4>
-              <p>{post.content}</p>
+          {posts.map((post) => (
+            <div key={post._id} className="post-card">
+              <h4>{post.content}</h4>
+              <p>Visibility: {post.visibility}</p>
+              <p>Posted on: {new Date(post.created_at).toLocaleString()}</p>
             </div>
           ))}
         </div>
