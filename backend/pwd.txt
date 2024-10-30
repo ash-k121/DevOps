@@ -1,7 +1,0 @@
-API_KEY=AIzaSyBmqgIw_SNFY10ASaooOFUx8MHytrto6r0
-
-client id
-610840874943-4c5gbabbp4309c232d187tpufu1aec2j.apps.googleusercontent.com
-
-client secret 
-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
