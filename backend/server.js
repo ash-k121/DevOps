@@ -4,6 +4,8 @@ const cors = require('cors'); // Import CORS
 const path = require('path');
 const User = require("./schema/userSchema"); // Import your Mongoose model
 const Post= require("./schema/postSchema");
+const Follower = require('./schema/followersSchema'); 
+const Like=require('./schema/likesSchema')
 const app = express();
 const port = 5170;
 
@@ -37,13 +39,17 @@ app.get('/post', async (req, res) => {
 });
 // app.js
 app.post("/load", async (req, res) => {
-  const { email, username, profilePicture } = req.body; // Updated field names
-
+  const { email, username, profilePicture } = req.body;
+ console.log(email);
   try {
+    console.log("Received request with data:", req.body); // Log incoming request data
+
     // Step 1: Check if user already exists in the database
     let user = await User.findOne({ email });
-    
+    console.log("Database lookup complete"); // Log after database lookup
+
     if (!user) {
+      console.log("User not found, creating new user");
       user = new User({ email, username, profilePicture });
       await user.save();
       console.log("New user created:", user);
@@ -58,6 +64,7 @@ app.post("/load", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 app.post("/getUser", async (req, res) => {
   const { email } = req.body;
@@ -207,7 +214,244 @@ app.get("/api/posts/user/:userId", async (req, res) => {
 });
 
 
-// Start the server
+app.post('/follow', async (req, res) => {
+  const { follower_user_id, followed_user_id } = req.body;
+
+  try {
+      const newFollower = new Follower({
+          follower_user_id,
+          followed_user_id,
+          created_at: new Date(),
+      });
+
+      await newFollower.save();
+      res.status(201).json({ message: 'Followed successfully' });
+  } catch (error) {
+      console.error('Error following user:', error);
+      res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Unfollow a user
+app.post('/unfollow', async (req, res) => {
+  const { follower_user_id, followed_user_id } = req.body;
+
+  try {
+      await Follower.deleteOne({
+          follower_user_id,
+          followed_user_id,
+      });
+
+      res.status(200).json({ message: 'Unfollowed successfully' });
+  } catch (error) {
+      console.error('Error unfollowing user:', error);
+      res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get posts from followed users
+app.get('/posts/followed/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+      const followedUsers = await Follower.find({ follower_user_id: userId });
+
+      const followedUserIds = followedUsers.map(follower => follower.followed_user_id);
+      
+      const posts = await Post.find({ user_id: { $in: followedUserIds } }).populate('user_id'); // Populate to get user details
+      res.status(200).json(posts);
+  } catch (error) {
+      console.error('Error fetching followed users posts:', error);
+      res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/suggest-users', async (req, res) => {
+  try {
+    const suggestedUsers = await User.aggregate([{ $sample: { size: 6 } }]); // Randomly select 6 users
+    res.status(200).json(suggestedUsers);
+  } catch (error) {
+    console.error("Error fetching suggested users:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post('/followCounts', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Count followers (users following the specified user)
+    const followersCount = await Follower.countDocuments({ followed_user_id: userId });
+
+    // Count following (users followed by the specified user)
+    const followingCount = await Follower.countDocuments({ follower_user_id: userId });
+
+    // Send both counts in the response
+    res.status(200).json({ followersCount, followingCount });
+  } catch (error) {
+    console.error("Error fetching follow counts", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// In your backend (e.g., Express app)
+app.get("/search", async (req, res) => {
+  const { username } = req.query;
+  
+  try {
+    const users = await User.find({ username: { $regex: username, $options: "i" } }).limit(5); // Case-insensitive search
+
+    if (users.length > 0) {
+      res.status(200).json(users); // Send matching users as response
+    } else {
+      res.status(404).json({ message: "No users found" }); // Send "Not found" message if no matches
+    }
+  } catch (error) {
+    console.error("Error in search:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/feed/:email", async (req, res) => {
+  const email = req.params.email;
+
+  try {
+    // Find the current user by email
+    const currentUser = await User.findOne({ email });
+    if (!currentUser) return res.status(404).json({ error: "User not found" });
+
+    // Get IDs of users the current user is following
+    const following = await Follower.find({ follower_user_id: currentUser._id });
+    const followingIds = following.map((follow) => follow.followed_user_id);
+
+    // Find posts by followed users, populate user details
+    const posts = await Post.find({
+      user_id: { $in: followingIds },
+      visibility: { $in: ["public", "friends"] },
+    })
+      .sort({ created_at: -1 })
+      .limit(10)
+      .populate('user_id', 'username profilePicture'); // Populate `username` and `profilePicture`
+
+    res.status(200).json(posts);
+  } catch (error) {
+    console.error("Error fetching feed:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+// Check if a post is liked by a user
+app.get("/like", async (req, res) => {
+  const { postId, userEmail } = req.query;
+  try {
+    const user = await User.findOne({ email: userEmail });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const like = await Like.findOne({ post_id: postId, user_id: user._id });
+    res.json({ liked: !!like });
+  } catch (error) {
+    console.error("Error checking like status:", error);
+    res.status(500).json({ message: "Error checking like status" });
+  }
+});
+
+// Route to add a like
+app.post("/like", async (req, res) => {
+  const { postId, userEmail } = req.body;
+  try {
+    const user = await User.findOne({ email: userEmail });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const newLike = new Like({
+      _id: new mongoose.Types.ObjectId(),
+      post_id: postId,
+      user_id: user._id,
+    });
+
+    await newLike.save();
+    res.status(201).json({ message: "Post liked" });
+  } catch (error) {
+    console.error("Error liking post:", error);
+    res.status(500).json({ message: "Error liking post" });
+  }
+});
+
+// Route to remove a like
+app.delete("/like/unlike", async (req, res) => {
+  const { postId, userEmail } = req.body;
+  try {
+    const user = await User.findOne({ email: userEmail });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await Like.findOneAndDelete({ post_id: postId, user_id: user._id });
+    res.status(200).json({ message: "Post unliked" });
+  } catch (error) {
+    console.error("Error unliking post:", error);
+    res.status(500).json({ message: "Error unliking post" });
+  }
+});
+app.get('/getfollowers', async (req, res) => {
+  const { email } = req.query; // Use query parameter to get the email
+  try {
+    // Find the user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Find followers where the followed_user_id is the current user's ID
+    const followers = await Follower.find({
+      followed_user_id: user._id
+    }).populate('follower_user_id', 'username profilePicture'); // Include specific fields
+
+    // Format followers data to return only necessary fields
+    const followersData = followers.map(follower => ({
+      _id: follower.follower_user_id._id,
+      username: follower.follower_user_id.username,
+      profilePicture: follower.follower_user_id.profilePicture,
+    }));
+
+    return res.json({ followedUsers: followersData });
+  } catch (error) {
+    console.error("Error fetching followers", error);
+    res.status(500).json({ message: "Error fetching followers" });
+  }
+});
+
+// Update post by ID
+app.put('/edit/:id', async (req, res) => {
+  const { id } = req.params;
+  const { content, visibility } = req.body;
+  try {
+    const updatedPost = await Post.findByIdAndUpdate(
+      id,
+      { content, visibility, updated_at: Date.now() },
+      { new: true }
+    );
+    res.status(200).json(updatedPost);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update post' });
+  }
+});
+
+// Delete post by ID
+app.delete('/delete/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await Post.findByIdAndDelete(id);
+    res.status(200).json({ message: 'Post deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete post' });
+  }
+});
+
+
+// // Start the server
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });

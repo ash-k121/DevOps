@@ -6,27 +6,34 @@ import axios from "axios";
 
 const LoadingPage = () => {
   const { user, isAuthenticated } = useAuth0();
+  console.log(user);
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkOrCreateUser = async () => {
-      if (isAuthenticated && user) {
+      
         try {
+          if (isAuthenticated && user) {
+            console.log("sending")
           // Check or create user in the backend
           await axios.post("http://localhost:5170/load", {
             email: user.email,
-            name: user.name,
-            picture: user.picture,
+            username: user.nickname,
+            profilePicture: user.picture,
           });
-          // Redirect to LandingPage after user is verified/created
-          navigate("/main");
+          console.log("sent")
+          
+          // Navigate to main page upon successful user check/create
+          navigate("/main");}
+          else{
+            // Redirect to login page if not authenticated
+            navigate("/");
+          }
         } catch (error) {
           console.error("Error checking or creating user:", error);
         }
-      } else {
-        navigate("/"); // Redirect to login if not authenticated
       }
-    };
+    
 
     checkOrCreateUser();
   }, [isAuthenticated, user, navigate]);
