@@ -9,36 +9,59 @@ on:
       - main
 
 jobs:
-  sonarqube:
+  sonarcloud:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Java
-        uses: actions/setup-java@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          distribution: 'temurin'
-          java-version: '11'
+          node-version: '16'  # Adjust the Node.js version as needed
 
-      - name: Cache Maven dependencies
+      - name: Cache Node.js dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-maven
+            ${{ runner.os }}-node
 
-      - name: Build project
-        run: mvn clean package -DskipTests
+      - name: Install dependencies (Backend)
+        working-directory: ./backend  # Specify the path to your backend directory
+        run: npm install
+
+      - name: Install dependencies (Frontend)
+        working-directory: ./frontend  # Specify the path to your frontend directory
+        run: npm install
+
+      - name: Run Tests (Backend)
+        working-directory: ./backend  # Specify the path to your backend directory
+        run: npm test -- --coverage
+
+      - name: Run Tests (Frontend)
+        working-directory: ./frontend  # Specify the path to your frontend directory
+        run: npm test -- --coverage
 
       - name: Run SonarCloud Analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          mvn sonar:sonar \
+          # Run SonarCloud analysis for backend
+          sonar-scanner \
+          -Dsonar.projectKey=your_project_key \
           -Dsonar.organization=your_organization_key \
+          -Dsonar.sources=backend/src \
+          -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+          # Run SonarCloud analysis for frontend
+          sonar-scanner \
+          -Dsonar.projectKey=your_project_key \
+          -Dsonar.organization=your_organization_key \
+          -Dsonar.sources=frontend/src \
           -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
