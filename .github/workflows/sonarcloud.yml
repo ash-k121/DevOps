@@ -19,7 +19,23 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '16'  # Adjust the Node.js version as needed
+
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node
+
+      - name: Install dependencies (Backend)
+        working-directory: ./backend  # Specify the path to your backend directory
+        run: npm install
+
+      - name: Install dependencies (Frontend)
+        working-directory: ./frontend  # Specify the path to your frontend directory
+        run: npm install
 
       - name: Run SonarCloud Analysis
         env:
@@ -29,13 +45,6 @@ jobs:
           sonar-scanner \
             -Dsonar.projectKey=your_project_key \
             -Dsonar.organization=your_organization_key \
-            -Dsonar.sources=backend/src \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-
-          sonar-scanner \
-            -Dsonar.projectKey=your_project_key \
-            -Dsonar.organization=your_organization_key \
-            -Dsonar.sources=frontend/src \
+            -Dsonar.sources=. \
             -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
