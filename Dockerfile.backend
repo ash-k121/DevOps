@@ -1,7 +1,7 @@
-# FROM node:lts
-# WORKDIR /app
-# COPY backend/package*.json ./
-# RUN npm install
-# COPY backend/ ./
-# EXPOSE 5170
-# CMD ["npm", "start"]
+FROM node:lts
+WORKDIR /app
+COPY backend/package*.json ./
+RUN npm install
+COPY backend/ ./
+EXPOSE 5170
+CMD ["npm", "start"]
