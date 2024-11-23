@@ -5,7 +5,7 @@ import { Auth0Provider } from '@auth0/auth0-react';
 // import './index.css'
 
 const root = createRoot(document.getElementById('root'));
-
+import "@auth0/auth0-react"
 
 root.render(
   <Auth0Provider

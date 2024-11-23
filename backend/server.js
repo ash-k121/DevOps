@@ -65,7 +65,9 @@ app.post("/load", async (req, res) => {
   }
 });
 
-
+app.get("/", async (req, res) => {
+  res.send("hello from 5170")
+})
 app.post("/getUser", async (req, res) => {
   const { email } = req.body;
 
