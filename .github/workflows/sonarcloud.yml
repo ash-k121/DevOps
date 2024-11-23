@@ -33,9 +33,9 @@ jobs:
         working-directory: ./backend  # Specify the path to your backend directory
         run: npm install
 
-      - name: Install dependencies (Frontend)
-        working-directory: ./frontend  # Specify the path to your frontend directory
-        run: npm install
+      # - name: Install dependencies (Frontend)
+      #   working-directory: ./frontend  # Specify the path to your frontend directory
+      #   run: npm install
 
       - name: Run Tests (Backend)
         working-directory: ./backend  # Specify the path to your backend directory
